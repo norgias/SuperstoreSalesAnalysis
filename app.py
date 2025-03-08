@@ -369,6 +369,11 @@ def sales_by_city():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# Flask route to dashboard.html for d3js visual display
+@app.route('/dashboard')
+def dashboard():
+    return render_template('dashboard.html')
+
 # Create sample data
 def create_sample_data():
     with app.app_context():
