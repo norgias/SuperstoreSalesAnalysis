@@ -58,196 +58,316 @@ def get_data():
     
     return jsonify(result)
 
-# New API Routes for Tableau Integration
+# View database schema route
+@app.route('/api/schema', methods=['GET'])
+def get_schema():
+    try:
+        # Connect to the database
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get all table names
+        tables_query = "SELECT name FROM sqlite_master WHERE type='table';"
+        cursor.execute(tables_query)
+        tables = [table[0] for table in cursor.fetchall()]
+        
+        schema = {}
+        
+        # For each table, get its column info
+        for table in tables:
+            # Skip SQLite internal tables
+            if table.startswith('sqlite_'):
+                continue
+                
+            # Get column information
+            pragma_query = f"PRAGMA table_info({table});"
+            cursor.execute(pragma_query)
+            columns = cursor.fetchall()
+            
+            # Format column info
+            column_details = []
+            for col in columns:
+                column_details.append({
+                    'cid': col[0],
+                    'name': col[1],
+                    'type': col[2],
+                    'notnull': col[3],
+                    'default_value': col[4],
+                    'pk': col[5]
+                })
+            
+            # Get a sample of data (first row)
+            try:
+                sample_query = f"SELECT * FROM {table} LIMIT 1;"
+                cursor.execute(sample_query)
+                sample = dict(cursor.fetchone() or {})
+            except:
+                sample = {}
+            
+            schema[table] = {
+                'columns': column_details,
+                'sample_row': sample
+            }
+        
+        # Close the connection
+        conn.close()
+        
+        return jsonify({
+            'database': 'sales_data_proper.db',
+            'tables': tables,
+            'schema': schema
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # Route for total sales by region
 @app.route('/api/sales_by_region', methods=['GET'])
 def sales_by_region():
-    query = """
-    SELECT Region, SUM(Sales) as TotalSales, SUM(Profit) as TotalProfit
-    FROM orders
-    GROUP BY Region
-    ORDER BY TotalSales DESC
-    """
-    return jsonify(query_to_json(query))
+    try:
+        query = """
+        SELECT region, SUM(sales) as TotalSales
+        FROM sales
+        GROUP BY region
+        ORDER BY TotalSales DESC
+        """
+        return jsonify(query_to_json(query))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # Route for total sales by category
 @app.route('/api/sales_by_category', methods=['GET'])
 def sales_by_category():
-    query = """
-    SELECT Category, SUM(Sales) as TotalSales, SUM(Profit) as TotalProfit
-    FROM orders
-    GROUP BY Category
-    ORDER BY TotalSales DESC
-    """
-    return jsonify(query_to_json(query))
+    try:
+        query = """
+        SELECT category, SUM(sales) as TotalSales
+        FROM sales
+        GROUP BY category
+        ORDER BY TotalSales DESC
+        """
+        return jsonify(query_to_json(query))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # Route for total sales by subcategory
 @app.route('/api/sales_by_subcategory', methods=['GET'])
 def sales_by_subcategory():
-    query = """
-    SELECT Category, Sub_Category, SUM(Sales) as TotalSales, SUM(Profit) as TotalProfit
-    FROM orders
-    GROUP BY Category, Sub_Category
-    ORDER BY Category, TotalSales DESC
-    """
-    return jsonify(query_to_json(query))
+    try:
+        query = """
+        SELECT category, sub_category, SUM(sales) as TotalSales
+        FROM sales
+        GROUP BY category, sub_category
+        ORDER BY category, TotalSales DESC
+        """
+        return jsonify(query_to_json(query))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # Route for sales trends over time (monthly)
 @app.route('/api/monthly_sales', methods=['GET'])
 def monthly_sales():
-    query = """
-    SELECT 
-        strftime('%Y-%m', Order_Date) as Month,
-        SUM(Sales) as TotalSales,
-        SUM(Profit) as TotalProfit
-    FROM orders
-    GROUP BY Month
-    ORDER BY Month
-    """
-    return jsonify(query_to_json(query))
+    try:
+        query = """
+        SELECT 
+            strftime('%Y-%m', order_date) as Month,
+            SUM(sales) as TotalSales
+        FROM sales
+        GROUP BY Month
+        ORDER BY Month
+        """
+        return jsonify(query_to_json(query))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # Route for sales trends over time (quarterly)
 @app.route('/api/quarterly_sales', methods=['GET'])
 def quarterly_sales():
-    query = """
-    SELECT 
-        strftime('%Y', Order_Date) || '-Q' || CAST((strftime('%m', Order_Date) + 2) / 3 AS TEXT) as Quarter,
-        SUM(Sales) as TotalSales,
-        SUM(Profit) as TotalProfit
-    FROM orders
-    GROUP BY Quarter
-    ORDER BY Quarter
-    """
-    return jsonify(query_to_json(query))
+    try:
+        query = """
+        SELECT 
+            strftime('%Y', order_date) || '-Q' || CAST((strftime('%m', order_date) + 2) / 3 AS TEXT) as Quarter,
+            SUM(sales) as TotalSales
+        FROM sales
+        GROUP BY Quarter
+        ORDER BY Quarter
+        """
+        return jsonify(query_to_json(query))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # Route for sales trends over time (yearly)
 @app.route('/api/yearly_sales', methods=['GET'])
 def yearly_sales():
-    query = """
-    SELECT 
-        strftime('%Y', Order_Date) as Year,
-        SUM(Sales) as TotalSales,
-        SUM(Profit) as TotalProfit
-    FROM orders
-    GROUP BY Year
-    ORDER BY Year
-    """
-    return jsonify(query_to_json(query))
+    try:
+        query = """
+        SELECT 
+            strftime('%Y', order_date) as Year,
+            SUM(sales) as TotalSales
+        FROM sales
+        GROUP BY Year
+        ORDER BY Year
+        """
+        return jsonify(query_to_json(query))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-# Route for profit margins by product
-@app.route('/api/product_profit_margins', methods=['GET'])
-def product_profit_margins():
-    query = """
-    SELECT 
-        Product_ID,
-        Product_Name,
-        SUM(Sales) as TotalSales,
-        SUM(Profit) as TotalProfit,
-        (SUM(Profit) / SUM(Sales) * 100) as ProfitMargin
-    FROM orders
-    GROUP BY Product_ID, Product_Name
-    HAVING TotalSales > 0
-    ORDER BY ProfitMargin DESC
-    """
-    return jsonify(query_to_json(query))
+# Route for top products
+@app.route('/api/top_products', methods=['GET'])
+def top_products():
+    try:
+        query = """
+        SELECT 
+            product_id,
+            product_name,
+            category,
+            sub_category,
+            SUM(sales) as TotalSales,
+            COUNT(DISTINCT order_id) as OrderCount
+        FROM sales
+        GROUP BY product_id, product_name, category, sub_category
+        ORDER BY TotalSales DESC
+        LIMIT 50
+        """
+        return jsonify(query_to_json(query))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # Route for customer segmentation data
 @app.route('/api/customer_segments', methods=['GET'])
 def customer_segments():
-    query = """
-    SELECT 
-        Customer_ID,
-        Customer_Name,
-        Segment,
-        COUNT(DISTINCT Order_ID) as OrderCount,
-        SUM(Sales) as TotalSpent,
-        AVG(Sales) as AvgOrderValue
-    FROM orders
-    GROUP BY Customer_ID, Customer_Name, Segment
-    ORDER BY TotalSpent DESC
-    """
-    return jsonify(query_to_json(query))
-
-# Route for top performing products
-@app.route('/api/top_products', methods=['GET'])
-def top_products():
-    query = """
-    SELECT 
-        Product_ID,
-        Product_Name,
-        Category,
-        Sub_Category,
-        SUM(Sales) as TotalSales,
-        SUM(Profit) as TotalProfit,
-        COUNT(DISTINCT Order_ID) as OrderCount
-    FROM orders
-    GROUP BY Product_ID, Product_Name, Category, Sub_Category
-    ORDER BY TotalSales DESC
-    LIMIT 50
-    """
-    return jsonify(query_to_json(query))
+    try:
+        query = """
+        SELECT 
+            customer_id,
+            customer_name,
+            segment,
+            COUNT(DISTINCT order_id) as OrderCount,
+            SUM(sales) as TotalSpent,
+            AVG(sales) as AvgOrderValue
+        FROM sales
+        GROUP BY customer_id, customer_name, segment
+        ORDER BY TotalSpent DESC
+        """
+        return jsonify(query_to_json(query))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # Route for overall sales summary
 @app.route('/api/sales_summary', methods=['GET'])
 def sales_summary():
-    query = """
-    SELECT 
-        COUNT(DISTINCT Order_ID) as TotalOrders,
-        COUNT(DISTINCT Customer_ID) as TotalCustomers,
-        SUM(Sales) as TotalSales,
-        SUM(Profit) as TotalProfit,
-        (SUM(Profit) / SUM(Sales) * 100) as OverallProfitMargin,
-        AVG(Sales) as AverageOrderValue
-    FROM orders
-    """
-    return jsonify(query_to_json(query))
+    try:
+        query = """
+        SELECT 
+            COUNT(DISTINCT order_id) as TotalOrders,
+            COUNT(DISTINCT customer_id) as TotalCustomers,
+            SUM(sales) as TotalSales,
+            AVG(sales) as AverageOrderValue
+        FROM sales
+        """
+        return jsonify(query_to_json(query))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # Route with filtering parameters (can be used for dashboards with filters)
 @app.route('/api/filtered_sales', methods=['GET'])
 def filtered_sales():
-    # Get filter parameters from query string
-    region = request.args.get('region', '')
-    category = request.args.get('category', '')
-    start_date = request.args.get('start_date', '')
-    end_date = request.args.get('end_date', '')
-    
-    # Build the query with filters
-    query = """
-    SELECT 
-        strftime('%Y-%m', Order_Date) as Month,
-        Region,
-        Category,
-        SUM(Sales) as TotalSales,
-        SUM(Profit) as TotalProfit
-    FROM orders
-    WHERE 1=1
-    """
-    
-    params = []
-    
-    if region:
-        query += " AND Region = ?"
-        params.append(region)
+    try:
+        # Get filter parameters from query string
+        region_param = request.args.get('region', '')
+        category_param = request.args.get('category', '')
+        start_date = request.args.get('start_date', '')
+        end_date = request.args.get('end_date', '')
         
-    if category:
-        query += " AND Category = ?"
-        params.append(category)
+        # Build the query with filters
+        query = """
+        SELECT 
+            strftime('%Y-%m', order_date) as Month,
+            region,
+            category,
+            SUM(sales) as TotalSales
+        FROM sales
+        WHERE 1=1
+        """
         
-    if start_date:
-        query += " AND Order_Date >= ?"
-        params.append(start_date)
+        params = []
         
-    if end_date:
-        query += " AND Order_Date <= ?"
-        params.append(end_date)
-    
-    query += """
-    GROUP BY Month, Region, Category
-    ORDER BY Month
-    """
-    
-    return jsonify(query_to_json(query, params=params))
+        if region_param:
+            query += " AND region = ?"
+            params.append(region_param)
+            
+        if category_param:
+            query += " AND category = ?"
+            params.append(category_param)
+            
+        if start_date:
+            query += " AND order_date >= ?"
+            params.append(start_date)
+            
+        if end_date:
+            query += " AND order_date <= ?"
+            params.append(end_date)
+        
+        query += """
+        GROUP BY Month, region, category
+        ORDER BY Month
+        """
+        
+        return jsonify(query_to_json(query, params=params))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# Route to get ship modes
+@app.route('/api/ship_modes', methods=['GET'])
+def ship_modes():
+    try:
+        query = """
+        SELECT 
+            ship_mode,
+            COUNT(*) as OrderCount,
+            SUM(sales) as TotalSales
+        FROM sales
+        GROUP BY ship_mode
+        ORDER BY TotalSales DESC
+        """
+        return jsonify(query_to_json(query))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# Route to get sales by state
+@app.route('/api/sales_by_state', methods=['GET'])
+def sales_by_state():
+    try:
+        query = """
+        SELECT 
+            state,
+            COUNT(DISTINCT order_id) as OrderCount,
+            SUM(sales) as TotalSales
+        FROM sales
+        GROUP BY state
+        ORDER BY TotalSales DESC
+        """
+        return jsonify(query_to_json(query))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# Route to get sales by city (top cities)
+@app.route('/api/sales_by_city', methods=['GET'])
+def sales_by_city():
+    try:
+        limit = request.args.get('limit', '20')
+        query = f"""
+        SELECT 
+            city,
+            state,
+            COUNT(DISTINCT order_id) as OrderCount,
+            SUM(sales) as TotalSales
+        FROM sales
+        GROUP BY city, state
+        ORDER BY TotalSales DESC
+        LIMIT {limit}
+        """
+        return jsonify(query_to_json(query))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # Create sample data
 def create_sample_data():
