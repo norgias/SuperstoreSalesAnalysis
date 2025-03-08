@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Superstore Sales Dashboard</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            grid-gap: 20px;
+        }
+        .chart-container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+        }
+        .chart-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        .bar {
+            fill: steelblue;
+        }
+        .bar:hover {
+            fill: #45a2d9;
+        }
+        .line {
+            fill: none;
+            stroke: #45a2d9;
+            stroke-width: 2;
+        }
+        .dot {
+            fill: #45a2d9;
+        }
+        .axis text {
+            font-size: 12px;
+        }
+        .axis path, .axis line {
+            fill: none;
+            stroke: #ddd;
+            shape-rendering: crispEdges;
+        }
+        .grid line {
+            stroke: #ddd;
+            stroke-opacity: 0.7;
+            shape-rendering: crispEdges;
+        }
+        .grid path {
+            stroke-width: 0;
+        }
+        #header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <h1>Superstore Sales Dashboard</h1>
+        <p>Interactive visualization of sales data</p>
+    </div>
+    
+    <div class="dashboard">
+        <div class="chart-container">
+            <div class="chart-title">Sales by Region</div>
+            <div id="region-chart"></div>
+        </div>
+        
+        <div class="chart-container">
+            <div class="chart-title">Sales by Category</div>
+            <div id="category-chart"></div>
+        </div>
+        
+        <div class="chart-container">
+            <div class="chart-title">Monthly Sales Trend</div>
+            <div id="monthly-chart"></div>
+        </div>
+        
+        <div class="chart-container">
+            <div class="chart-title">Top Products by Sales</div>
+            <div id="products-chart"></div>
+        </div>
+    </div>
+
+    <script>
+        // Create bar chart for region data
+        function createRegionChart(data) {
+            // Set dimensions and margins
+            const margin = {top: 20, right: 30, bottom: 40, left: 90},
+                width = 500 - margin.left - margin.right,
+                height = 300 - margin.top - margin.bottom;
+
+            // Remove any existing SVG
+            d3.select("#region-chart svg").remove();
+            
+            // Create SVG
+            const svg = d3.select("#region-chart")
+                .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Add X axis
+            const x = d3.scaleLinear()
+                .domain([0, d3.max(data, d => d.TotalSales)])
+                .range([0, width]);
+            
+            svg.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(x))
+                .selectAll("text")
+                .attr("transform", "translate(-10,0)rotate(-45)")
+                .style("text-anchor", "end");
+
+            // Add Y axis
+            const y = d3.scaleBand()
+                .range([0, height])
+                .domain(data.map(d => d.region))
+                .padding(0.1);
+            
+            svg.append("g")
+                .call(d3.axisLeft(y));
+
+            // Add bars
+            svg.selectAll("myRect")
+                .data(data)
+                .enter()
+                .append("rect")
+                .attr("x", 0)
+                .attr("y", d => y(d.region))
+                .attr("width", d => x(d.TotalSales))
+                .attr("height", y.bandwidth())
+                .attr("class", "bar");
+                
+            // Add labels
+            svg.selectAll(".label")
+                .data(data)
+                .enter()
+                .append("text")
+                .attr("class", "label")
+                .attr("x", d => x(d.TotalSales) - 5)
+                .attr("y", d => y(d.region) + y.bandwidth() / 2)
+                .attr("dy", ".35em")
+                .attr("text-anchor", "end")
+                .text(d => d3.format(",.0f")(d.TotalSales))
+                .style("fill", "white")
+                .style("font-size", "12px");
+        }
+
+        // Create bar chart for category data
+        function createCategoryChart(data) {
+            // Set dimensions and margins
+            const margin = {top: 20, right: 30, bottom: 40, left: 90},
+                width = 500 - margin.left - margin.right,
+                height = 300 - margin.top - margin.bottom;
+
+            // Remove any existing SVG
+            d3.select("#category-chart svg").remove();
+            
+            // Create SVG
+            const svg = d3.select("#category-chart")
+                .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Add X axis
+            const x = d3.scaleLinear()
+                .domain([0, d3.max(data, d => d.TotalSales)])
+                .range([0, width]);
+            
+            svg.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(x))
+                .selectAll("text")
+                .attr("transform", "translate(-10,0)rotate(-45)")
+                .style("text-anchor", "end");
+
+            // Add Y axis
+            const y = d3.scaleBand()
+                .range([0, height])
+                .domain(data.map(d => d.category))
+                .padding(0.1);
+            
+            svg.append("g")
+                .call(d3.axisLeft(y));
+
+            // Add bars
+            svg.selectAll("myRect")
+                .data(data)
+                .enter()
+                .append("rect")
+                .attr("x", 0)
+                .attr("y", d => y(d.category))
+                .attr("width", d => x(d.TotalSales))
+                .attr("height", y.bandwidth())
+                .attr("class", "bar");
+                
+            // Add labels
+            svg.selectAll(".label")
+                .data(data)
+                .enter()
+                .append("text")
+                .attr("class", "label")
+                .attr("x", d => x(d.TotalSales) - 5)
+                .attr("y", d => y(d.category) + y.bandwidth() / 2)
+                .attr("dy", ".35em")
+                .attr("text-anchor", "end")
+                .text(d => d3.format(",.0f")(d.TotalSales))
+                .style("fill", "white")
+                .style("font-size", "12px");
+        }
+
+        // Create line chart for monthly sales
+        function createMonthlyChart(data) {
+            // Sort data by month
+            data.sort((a, b) => a.Month.localeCompare(b.Month));
+            
+            // Set dimensions and margins
+            const margin = {top: 20, right: 30, bottom: 50, left: 60},
+                width = 500 - margin.left - margin.right,
+                height = 300 - margin.top - margin.bottom;
+
+            // Remove any existing SVG
+            d3.select("#monthly-chart svg").remove();
+            
+            // Create SVG
+            const svg = d3.select("#monthly-chart")
+                .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Add X axis
+            const x = d3.scaleBand()
+                .range([0, width])
+                .domain(data.map(d => d.Month))
+                .padding(0.2);
+            
+            svg.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(x))
+                .selectAll("text")
+                .attr("transform", "translate(-10,0)rotate(-45)")
+                .style("text-anchor", "end");
+
+            // Add Y axis
+            const y = d3.scaleLinear()
+                .domain([0, d3.max(data, d => d.TotalSales) * 1.1])
+                .range([height, 0]);
+            
+            svg.append("g")
+                .call(d3.axisLeft(y));
+
+            // Add the line
+            svg.append("path")
+                .datum(data)
+                .attr("class", "line")
+                .attr("d", d3.line()
+                    .x(d => x(d.Month) + x.bandwidth()/2)
+                    .y(d => y(d.TotalSales))
+                );
+
+            // Add the points
+            svg.selectAll("dot")
+                .data(data)
+                .enter()
+                .append("circle")
+                .attr("class", "dot")
+                .attr("cx", d => x(d.Month) + x.bandwidth()/2)
+                .attr("cy", d => y(d.TotalSales))
+                .attr("r", 5);
+        }
+
+        // Create bar chart for top products
+        function createTopProductsChart(data) {
+            // Limit to top 10 products
+            data = data.slice(0, 10);
+            
+            // Set dimensions and margins
+            const margin = {top: 20, right: 30, bottom: 140, left: 90},
+                width = 500 - margin.left - margin.right,
+                height = 300 - margin.top - margin.bottom;
+
+            // Remove any existing SVG
+            d3.select("#products-chart svg").remove();
+            
+            // Create SVG
+            const svg = d3.select("#products-chart")
+                .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Add X axis
+            const x = d3.scaleBand()
+                .range([0, width])
+                .domain(data.map(d => d.product_name))
+                .padding(0.2);
+            
+            svg.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(x))
+                .selectAll("text")
+                .attr("transform", "translate(-10,0)rotate(-45)")
+                .style("text-anchor", "end")
+                .text(d => {
+                    // Truncate long product names
+                    return d.length > 15 ? d.substring(0, 15) + '...' : d;
+                });
+
+            // Add Y axis
+            const y = d3.scaleLinear()
+                .domain([0, d3.max(data, d => d.TotalSales)])
+                .range([height, 0]);
+            
+            svg.append("g")
+                .call(d3.axisLeft(y));
+
+            // Add bars
+            svg.selectAll("myRect")
+                .data(data)
+                .enter()
+                .append("rect")
+                .attr("x", d => x(d.product_name))
+                .attr("y", d => y(d.TotalSales))
+                .attr("width", x.bandwidth())
+                .attr("height", d => height - y(d.TotalSales))
+                .attr("class", "bar");
+        }
+
+        // Fetch data from API endpoints and create charts
+        function fetchData() {
+            // Fetch region data
+            fetch('/api/sales_by_region')
+                .then(response => response.json())
+                .then(data => createRegionChart(data));
+            
+            // Fetch category data
+            fetch('/api/sales_by_category')
+                .then(response => response.json())
+                .then(data => createCategoryChart(data));
+            
+            // Fetch monthly data
+            fetch('/api/monthly_sales')
+                .then(response => response.json())
+                .then(data => createMonthlyChart(data));
+            
+            // Fetch top products data
+            fetch('/api/top_products')
+                .then(response => response.json())
+                .then(data => createTopProductsChart(data));
+        }
+
+        // Load data when page loads
+        document.addEventListener('DOMContentLoaded', fetchData);
+    </script>
+</body>
+</html>
