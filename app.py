@@ -7,7 +7,7 @@ app = Flask(__name__)
 
 # Configure database connection
 # Replace with your actual database connection string
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///portfolio.db'  
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///sales_data_proper.db'  
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize database
