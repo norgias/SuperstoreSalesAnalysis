@@ -162,21 +162,53 @@ def sales_by_subcategory():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# Route for sales trends over time (monthly)
+
+# Improved route for sales trends over time (monthly)
 @app.route('/api/monthly_sales', methods=['GET'])
 def monthly_sales():
     try:
         query = """
         SELECT 
             strftime('%Y-%m', order_date) as Month,
-            SUM(sales) as TotalSales
+            SUM(sales) as TotalSales,
+            COUNT(*) as OrderCount
         FROM sales
+        WHERE order_date IS NOT NULL
         GROUP BY Month
         ORDER BY Month
         """
-        return jsonify(query_to_json(query))
+        
+        # Execute the query
+        conn = get_db_connection()
+        df = pd.read_sql_query(query, conn)
+        conn.close()
+        
+        # Check if we got any results
+        if df.empty:
+            # Try a more lenient query if we didn't get results
+            conn = get_db_connection()
+            # This query uses substr to handle different date formats
+            alternative_query = """
+            SELECT 
+                substr(order_date, 1, 7) as Month,
+                SUM(sales) as TotalSales,
+                COUNT(*) as OrderCount
+            FROM sales
+            WHERE order_date IS NOT NULL
+            GROUP BY Month
+            ORDER BY Month
+            """
+            df = pd.read_sql_query(alternative_query, conn)
+            conn.close()
+        
+        return jsonify(df.to_dict(orient='records'))
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        # Return detailed error info
+        error_details = {
+            "error": str(e),
+            "suggestion": "Check the order_date format in your database"
+        }
+        return jsonify(error_details), 500
 
 # Route for sales trends over time (quarterly)
 @app.route('/api/quarterly_sales', methods=['GET'])
